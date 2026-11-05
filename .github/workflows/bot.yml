@@ -1,4 +1,6 @@
-name: Telegram Bot 24/7 Trading
+- name: Install dependencies
+      run: |
+        pip install requests ccxt pandas
 
 on:
   schedule:
