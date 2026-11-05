@@ -1,8 +1,9 @@
-name: Telegram Bot
+name: Telegram Bot 24/7 Trading
 
 on:
-  push:
-    branches: [ main ]
+  schedule:
+    # Wuxuu shaqaynayaa 30 daqiiqadood mar (waad ka dhigi kartaa '*/15' haddii aad rabto 15 min kasta)
+    - cron: '*/30 * * * *'
   workflow_dispatch:
 
 jobs:
