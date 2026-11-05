@@ -22,7 +22,7 @@ COINS = [
 
 def analyze_timeframe(exchange, symbol, timeframe):
     try:
-        # Soo jiid 150 shamac ee u dambeeyay si EMA-da loo xisaabiyo
+        # Soo jiid 150 shamac ee u dambeeyay
         ohlcv = exchange.fetch_ohlcv(symbol, timeframe, limit=150)
         df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
         
@@ -36,13 +36,23 @@ def analyze_timeframe(exchange, symbol, timeframe):
         e21 = df['ema21'].iloc[-1]
         e100 = df['ema100'].iloc[-1]
         
-        # Xisaabi boqolleyda masaafada u dhaxaysa EMA 9 iyo EMA 21 (0.15%)
+        prev_e9 = df['ema9'].iloc[-2]
+        prev_e21 = df['ema21'].iloc[-2]
+        
+        # Xisaabi boqolleyda masaafada ee hadda
         diff_percentage = abs(e9 - e21) / current_price * 100
         
-        # Shuruudda: Masaafadu ha noqoto 0.15% ama ka yar (isku dhawaansho / crossover zone)
+        # 1. Hubi inaysan weli is-jarin (Haddii hore ay u is-jareen, masaafadu way sii kordhaysaa oo waa la dhaafay)
+        # 2. Hubi in masaafadoodu ay tahay 0.15% ama ka yar (isku-dhowaanshaha kahor intaysan is-jarin)
+        # 3. Hubi jihada (tusaale ahaan EMA 9 oo ku socota dhanka EMA 21 si ay u dhowaato)
         if diff_percentage <= 0.15:
-            return True, current_price, e9, e21, e100
+            # Hubin dheeraad ah: Inaysan hore u kala fogaanaynin (crossover dhacay)
+            prev_diff = abs(prev_e9 - prev_e21) / df['close'].iloc[-2] * 100
             
+            # Haddii masaafadu ay soo yaraanayso (isku soo dhowaanayaan) ama ay ku dhow yihiin is-jarista
+            if diff_percentage <= prev_diff or diff_percentage <= 0.08:
+                return True, current_price, e9, e21, e100
+                
     except Exception as e:
         print(f"Khalad ku yimid {symbol} ({timeframe}): {e}")
         
@@ -56,29 +66,27 @@ def check_market():
     signals_found = []
     
     for symbol in COINS:
-        # Baadh labada Timeframe: '1h' iyo '4h'
         for tf in ['1h', '4h']:
             is_matched, price, e9, e21, e100 = analyze_timeframe(exchange, symbol, tf)
             
             if is_matched:
                 clean_name = symbol.replace("/USDT", "")
                 signal_text = (
-                    f"🚨 **SIGNAL ALERT ({tf})** 🚨\n\n"
+                    f"🚨 **PRE-CROSSOVER ALERT ({tf})** 🚨\n\n"
                     f"🔹 **Coin:** {clean_name}\n"
                     f"💵 **Qiimaha:** ${price:,.4f}\n"
                     f"📊 **EMA 9:** ${e9:,.4f}\n"
                     f"📊 **EMA 21:** ${e21:,.4f}\n"
                     f"📊 **EMA 100:** ${e100:,.4f}\n"
-                    f"✨ *Masaafada EMA 9 & 21 waa ku dhowdahay (<= 0.15%)!*"
+                    f"✨ *EMA 9 & 21 waxay ku dhow yihiin inay is-jaraan (Masaafada: <= 0.15%)!*"
                 )
                 signals_found.append(signal_text)
                 
-    # Haddii signal la helo, Telegram u dir
     if signals_found:
         for msg in signals_found:
             send_telegram_message(msg)
     else:
-        print("Baadhistii waa dhamaatay, majiro signal la helay wareegan.")
+        print("Baadhistii waa dhamaatay, majiro pre-crossover signal la helay wareegan.")
 
 def send_telegram_message(text):
     telegram_url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
